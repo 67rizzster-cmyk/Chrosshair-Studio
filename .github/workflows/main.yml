@@ -11,27 +11,65 @@ jobs:
       - name: Download project
         uses: actions/checkout@v4
 
+      - name: Find project files
+        shell: powershell
+        run: |
+          Write-Host "Searching for project files..."
+          Get-ChildItem -Path . -Recurse -Filter "*.csproj" | ForEach-Object {
+            Write-Host "Found: $($_.FullName)"
+          }
+
+          Get-ChildItem -Path . -Recurse -Filter "*.iss" | ForEach-Object {
+            Write-Host "Found installer: $($_.FullName)"
+          }
+
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
       - name: Build Crosshair Studio
         shell: powershell
         run: |
-          msbuild .\CrosshairStudio\CrosshairStudio.csproj /p:Configuration=Release /p:Platform="Any CPU"
+          $project = Get-ChildItem -Path . -Recurse -Filter "CrosshairStudio.csproj" | Select-Object -First 1
+
+          if (-not $project) {
+            Write-Error "CrosshairStudio.csproj was not found!"
+            exit 1
+          }
+
+          Write-Host "Building: $($project.FullName)"
+
+          msbuild $project.FullName `
+            /p:Configuration=Release `
+            /p:Platform="Any CPU"
 
       - name: Install Inno Setup
         shell: powershell
         run: |
           choco install innosetup -y --no-progress
 
-      - name: Build Windows installer
+      - name: Build installer
         shell: powershell
         run: |
-          New-Item -ItemType Directory -Force -Path ".\Installer\Output" | Out-Null
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" ".\Installer\CrosshairStudio.iss"
+          $installer = Get-ChildItem -Path . -Recurse -Filter "CrosshairStudio.iss" | Select-Object -First 1
+
+          if (-not $installer) {
+            Write-Error "CrosshairStudio.iss was not found!"
+            exit 1
+          }
+
+          Write-Host "Building installer: $($installer.FullName)"
+
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" $installer.FullName
+
+      - name: Find installer
+        shell: powershell
+        run: |
+          Get-ChildItem -Path . -Recurse -Filter "Crosshair-Studio-Setup.exe" | ForEach-Object {
+            Write-Host "INSTALLER FOUND: $($_.FullName)"
+          }
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: Crosshair-Studio-Installer
-          path: .\Installer\Output\Crosshair-Studio-Setup.exe
+          path: "**/Crosshair-Studio-Setup.exe"
