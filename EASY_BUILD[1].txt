@@ -1,0 +1,14 @@
+CROSSHAIR STUDIO — EASY WINDOWS BUILD
+
+1. Create a GitHub account if you don't already have one.
+2. Create a new repository.
+3. Upload everything in this folder to the repository.
+4. Open Actions.
+5. Select "Build Crosshair Studio".
+6. Click "Run workflow".
+7. Wait for the build to finish.
+8. Open the completed workflow and download the artifact named "Crosshair-Studio-Installer".
+9. Inside it is Crosshair-Studio-Setup.exe.
+10. Run that installer on Windows.
+
+You do NOT need Visual Studio on your PC.
