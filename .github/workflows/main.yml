@@ -8,20 +8,45 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Download project
+      - name: Download repository
         uses: actions/checkout@v4
 
-      - name: Find project files
+      - name: Find or extract project
         shell: powershell
         run: |
-          Write-Host "Searching for project files..."
-          Get-ChildItem -Path . -Recurse -Filter "*.csproj" | ForEach-Object {
-            Write-Host "Found: $($_.FullName)"
+          Write-Host "Looking for Crosshair Studio files..."
+
+          $project = Get-ChildItem -Path . -Recurse -Filter "CrosshairStudio.csproj" -ErrorAction SilentlyContinue | Select-Object -First 1
+
+          if ($project) {
+            Write-Host "Project found: $($project.FullName)"
+            exit 0
           }
 
-          Get-ChildItem -Path . -Recurse -Filter "*.iss" | ForEach-Object {
-            Write-Host "Found installer: $($_.FullName)"
+          $zip = Get-ChildItem -Path . -Recurse -Filter "*.zip" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like "*Crosshair*" } |
+            Select-Object -First 1
+
+          if ($zip) {
+            Write-Host "Crosshair ZIP found: $($zip.FullName)"
+            Write-Host "Extracting..."
+
+            Expand-Archive -Path $zip.FullName -DestinationPath ".\ExtractedProject" -Force
+
+            Write-Host "Extraction complete."
           }
+
+          $project = Get-ChildItem -Path . -Recurse -Filter "CrosshairStudio.csproj" -ErrorAction SilentlyContinue | Select-Object -First 1
+
+          if (-not $project) {
+            Write-Host "Files currently in repository:"
+            Get-ChildItem -Path . -Recurse | Select-Object FullName
+
+            Write-Error "CrosshairStudio.csproj could not be found."
+            exit 1
+          }
+
+          Write-Host "Project found: $($project.FullName)"
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
@@ -29,14 +54,10 @@ jobs:
       - name: Build Crosshair Studio
         shell: powershell
         run: |
-          $project = Get-ChildItem -Path . -Recurse -Filter "CrosshairStudio.csproj" | Select-Object -First 1
+          $project = Get-ChildItem -Path . -Recurse -Filter "CrosshairStudio.csproj" |
+            Select-Object -First 1
 
-          if (-not $project) {
-            Write-Error "CrosshairStudio.csproj was not found!"
-            exit 1
-          }
-
-          Write-Host "Building: $($project.FullName)"
+          Write-Host "Building $($project.FullName)"
 
           msbuild $project.FullName `
             /p:Configuration=Release `
@@ -50,10 +71,11 @@ jobs:
       - name: Build installer
         shell: powershell
         run: |
-          $installer = Get-ChildItem -Path . -Recurse -Filter "CrosshairStudio.iss" | Select-Object -First 1
+          $installer = Get-ChildItem -Path . -Recurse -Filter "CrosshairStudio.iss" |
+            Select-Object -First 1
 
           if (-not $installer) {
-            Write-Error "CrosshairStudio.iss was not found!"
+            Write-Error "CrosshairStudio.iss was not found."
             exit 1
           }
 
@@ -64,9 +86,16 @@ jobs:
       - name: Find installer
         shell: powershell
         run: |
-          Get-ChildItem -Path . -Recurse -Filter "Crosshair-Studio-Setup.exe" | ForEach-Object {
-            Write-Host "INSTALLER FOUND: $($_.FullName)"
+          $setup = Get-ChildItem -Path . -Recurse -Filter "Crosshair-Studio-Setup.exe" |
+            Select-Object -First 1
+
+          if (-not $setup) {
+            Write-Error "Installer was not created."
+            exit 1
           }
+
+          Write-Host "INSTALLER FOUND:"
+          Write-Host $setup.FullName
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
