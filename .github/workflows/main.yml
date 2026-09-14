@@ -1,0 +1,37 @@
+name: Build Crosshair Studio
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Download project
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Crosshair Studio
+        shell: powershell
+        run: |
+          msbuild .\CrosshairStudio\CrosshairStudio.csproj /p:Configuration=Release /p:Platform="Any CPU"
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: |
+          choco install innosetup -y --no-progress
+
+      - name: Build Windows installer
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path ".\Installer\Output" | Out-Null
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" ".\Installer\CrosshairStudio.iss"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Crosshair-Studio-Installer
+          path: .\Installer\Output\Crosshair-Studio-Setup.exe
